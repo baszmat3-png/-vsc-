@@ -94,10 +94,10 @@ function render(){const t=norm($('q').value.trim()),tn=t.replace(/\s/g,'');
  else h=`<div class="g">${r.map(c=>card(c,1)).join('')}</div>`;
  $('list').innerHTML=h;$('list').querySelectorAll('[data-cp]').forEach(b=>b.onclick=()=>{const c=C.find(x=>x.i==b.dataset.cp);(navigator.clipboard?navigator.clipboard.writeText(c.p):Promise.reject()).then(()=>toast('تم نسخ الرقم'),()=>toast(c.p))});
  $('list').querySelectorAll('[data-ed]').forEach(b=>b.onclick=()=>form(C.find(x=>x.i==b.dataset.ed)))}
-const open=h=>{$('sh').innerHTML=h;$('ov').classList.add('on')},close=()=>$('ov').classList.remove('on');
-$('ov').onclick=e=>{if(e.target==$('ov'))close()};
+const openSh=h=>{$('sh').innerHTML=h;$('ov').classList.add('on')},closeSh=()=>$('ov').classList.remove('on');
+$('ov').onclick=e=>{if(e.target==$('ov'))closeSh()};
 function form(c){const e=!!c;c=c||{n:'',t:'',p:'',c:''};
- open(`<h3>${e?'تعديل جهة اتصال':'إضافة شخص'}<button class="b s" onclick="close()">${ic('x')}</button></h3>
+ openSh(`<h3>${e?'تعديل جهة اتصال':'إضافة شخص'}<button class="b s" onclick="closeSh()">${ic('x')}</button></h3>
 <label>الاسم</label><input class="f" id="fn" value="${esc(c.n)}" placeholder="مثال: أحمد علي">
 <label>المنصب أو مكان العمل</label><input class="f" id="ft" value="${esc(c.t)}" placeholder="مثال: مدير مكتب — وزارة الداخلية">
 <label>رقم الهاتف</label><input class="f" id="fp" dir="ltr" inputmode="tel" value="${esc(c.p)}" placeholder="07XX XXX XXXX أو +964...">
@@ -108,10 +108,10 @@ function form(c){const e=!!c;c=c||{n:'',t:'',p:'',c:''};
  $('sv').onclick=()=>{const n=$('fn').value.trim(),t=$('ft').value.trim(),f=fmt($('fp').value);if(!n&&!t)return toast('اكتب الاسم');if(!f)return toast('رقم الهاتف غير صحيح');
   let k=$('fc').value;if(k=='+')k=$('fx').value.trim();if(!k)k=auto(n+' '+t);
   if(e){Object.assign(c,{n,t,p:f.p,w:f.w,c:k});if(!c.u)U.e[c.k]={n,t,p:f.p,w:f.w,c:k}}else C.unshift({i:++uid,u:1,n,t,p:f.p,w:f.w,c:k});
-  save();close();buildChips();render();toast(e?'تم الحفظ':'تمت الإضافة')};
- if(e)$('dl').onclick=()=>{if($('dl').dataset.s){if(!c.u)U.d.push(c.k);C=C.filter(x=>x!=c);save();close();buildChips();render();toast('تم الحذف')}else{$('dl').dataset.s=1;$('dl').textContent='اضغط مرة أخرى للتأكيد'}}}
+  save();closeSh();buildChips();render();toast(e?'تم الحفظ':'تمت الإضافة')};
+ if(e)$('dl').onclick=()=>{if($('dl').dataset.s){if(!c.u)U.d.push(c.k);C=C.filter(x=>x!=c);save();closeSh();buildChips();render();toast('تم الحذف')}else{$('dl').dataset.s=1;$('dl').textContent='اضغط مرة أخرى للتأكيد'}}}
 const seg=(k,o)=>`<div class="seg">${o.map(([v,l])=>`<button data-k="${k}" data-v="${v}" class="${S[k]==v?'on':''}">${l}</button>`).join('')}</div>`;
-function settings(){open(`<h3>الإعدادات<button class="b s" onclick="close()">${ic('x')}</button></h3>
+function settings(){openSh(`<h3>الإعدادات<button class="b s" onclick="closeSh()">${ic('x')}</button></h3>
 <label>المظهر</label>${seg('th',[['auto','تلقائي'],['light','فاتح'],['dark','داكن']])}
 <label>لون التطبيق</label><div class="sw2">${ACC.map((a,i)=>`<button data-k="ac" data-v="${i}" class="${S.ac==i?'on':''}" style="background:${a}"></button>`).join('')}</div>
 <label>حجم الخط</label>${seg('fs',[[0.9,'صغير'],[1,'متوسط'],[1.12,'كبير']])}
@@ -126,7 +126,8 @@ function settings(){open(`<h3>الإعدادات<button class="b s" onclick="clo
  $('sh').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{let v=b.dataset.v;S[b.dataset.k]=isNaN(+v)||v===''?v:+v;save();theme();settings();render()});
  $('sm').oninput=e=>{S.msg=e.target.value;save();render()};$('sc').oninput=e=>{S.cc=e.target.value.replace(/\D/g,'');save()};
  $('ex').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(C)],{type:'application/json'}));a.download='contacts.json';a.click()};
- $('rs').onclick=()=>{if($('rs').dataset.s){U={a:[],d:[],e:{}};save();load();close();buildChips();render()}else{$('rs').dataset.s=1;$('rs').textContent='اضغط مرة أخرى للتأكيد'}}}
+ $('rs').onclick=()=>{if($('rs').dataset.s){U={a:[],d:[],e:{}};save();load();closeSh();buildChips();render()}else{$('rs').dataset.s=1;$('rs').textContent='اضغط مرة أخرى للتأكيد'}}}
 $('gear').onclick=settings;$('add').onclick=()=>form();$('q').oninput=render;
+addEventListener('keydown',e=>{if(e.key=='Escape')closeSh()});
 theme();buildChips();render();
 </script></body></html>
