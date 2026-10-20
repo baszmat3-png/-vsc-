@@ -1,19 +1,33 @@
 // خادم خفيف بلا مكتبات خارجية: يقدّم index.html ويفرض "جهاز واحد لكل مستخدم"
 const http = require('http'), fs = require('fs'), path = require('path'), crypto = require('crypto');
 const DIR = __dirname, HTML = path.join(DIR, 'index.html');
-const DB = path.join(process.env.DATA_DIR || DIR, 'bindings.json');
+const DATA = process.env.DATA_DIR || DIR;
+const DB = path.join(DATA, 'bindings.json');
+const STORE = path.join(DATA, 'store.json'); // آخر نسخة حيّة محفوظة من لوحة المدير (مشفّرة)
 const sha = t => crypto.createHash('sha256').update(t).digest('hex');
-let cache = { m: 0, html: '', V: { vaults: {} } };
+const VRE = /(<script id="vaults"[^>]*>)([\s\S]*?)(<\/script>)/;
+let cache = { m: 0, s: -1, html: '', V: { vaults: {} } };
 function load() {
   const m = fs.statSync(HTML).mtimeMs;
-  if (m !== cache.m) {
-    const html = fs.readFileSync(HTML, 'utf8');
-    const mt = html.match(/<script id="vaults"[^>]*>([\s\S]*?)<\/script>/);
-    let V = { vaults: {} }; try { V = JSON.parse(mt[1]); } catch (e) {}
-    cache = { m, html, V };
+  let sm = 0; try { sm = fs.statSync(STORE).mtimeMs; } catch (e) {}
+  if (m !== cache.m || sm !== cache.s) {
+    let html = fs.readFileSync(HTML, 'utf8');
+    const mt = html.match(VRE);
+    let V = { vaults: {} }; try { V = JSON.parse(mt[2]); } catch (e) {}
+    let S = null; if (sm) { try { S = JSON.parse(fs.readFileSync(STORE, 'utf8')); } catch (e) {} }
+    // النسخة الأحدث (بحسب ver) هي المعتمدة: إما ملف index.html المرفوع أو الحفظ المباشر
+    if (S && S.vaults && (S.ver || 0) > (V.ver || 0)) {
+      V = S;
+      html = html.replace(VRE, (x, a, b, c) => a + JSON.stringify(V).replace(/</g, '\\u003c') + c);
+    }
+    cache = { m, s: sm, html, V };
   }
   return cache;
 }
+function writeStore(obj) {
+  const tmp = STORE + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(obj)); fs.renameSync(tmp, STORE);
+}
+const okVault = v => v && typeof v === 'object' && ['s', 'i', 'c', 'a'].every(k => typeof v[k] === 'string');
 let B = {}; try { B = JSON.parse(fs.readFileSync(DB, 'utf8')); } catch (e) {}
 let t = null; const save = () => { clearTimeout(t); t = setTimeout(() => { try { fs.writeFileSync(DB, JSON.stringify(B)); } catch (e) {} }, 300); };
 function verify(id, tok) {
@@ -35,17 +49,31 @@ http.createServer((req, res) => {
   if (req.method === 'POST' && req.url.startsWith('/api/')) {
     const ip = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
     if (limited(String(ip))) return send(res, 429, { ok: false });
-    let body = ''; req.on('data', d => { body += d; if (body.length > 5000) req.destroy(); });
+    const MAXB = req.url.slice(5) === 'sync' ? 40e6 : 5000;
+    const chunks = []; let got = 0; req.on('data', d => { got += d.length; if (got > MAXB) req.destroy(); else chunks.push(d); });
     req.on('end', () => {
+      const body = Buffer.concat(chunks).toString('utf8');
       let q; try { q = JSON.parse(body); } catch (e) { return send(res, 400, { ok: false }); }
       const act = req.url.slice(5), v = verify(q.id, q.tok), dev = String(q.dev || '').slice(0, 64), now = Date.now();
       if (!v || !dev) return send(res, 401, { ok: false });
       if (act === 'bind') {
         const b = B[q.id];
         if (b && b.d !== dev) return send(res, 409, { ok: false, err: 'bound' });
-        B[q.id] = { d: dev, t: b ? b.t : now, l: now }; save(); return send(res, 200, { ok: true });
+        B[q.id] = { d: dev, t: b ? b.t : now, l: now }; save(); return send(res, 200, { ok: true, ver: load().V.ver || 0 });
       }
       if (act === 'release') { if (B[q.id] && B[q.id].d === dev) { delete B[q.id]; save(); } return send(res, 200, { ok: true }); }
+      if (act === 'sync') {
+        if (!v.ad) return send(res, 403, { ok: false });
+        const b = B[q.id]; if (b && b.d !== dev) return send(res, 409, { ok: false, err: 'bound' });
+        const d = q.data, cur = load().V;
+        if (!d || typeof d !== 'object' || !d.vaults || typeof d.blobs !== 'object' || !Number.isInteger(d.ver)) return send(res, 400, { ok: false });
+        if (d.ver <= (cur.ver || 0)) return send(res, 409, { ok: false, err: 'stale', ver: cur.ver || 0 });
+        const ids = Object.keys(d.vaults);
+        if (!ids.length || !ids.every(k => okVault(d.vaults[k])) || !ids.some(k => d.vaults[k].ad)) return send(res, 400, { ok: false });
+        try { writeStore({ it: cur.it, bind: cur.bind, ver: d.ver, blobs: d.blobs, vaults: d.vaults }); }
+        catch (e) { return send(res, 500, { ok: false }); }
+        load(); return send(res, 200, { ok: true, ver: d.ver });
+      }
       if (act === 'admin/list' || act === 'admin/unbind') {
         if (!v.ad) return send(res, 403, { ok: false });
         if (act === 'admin/list') { const o = {}; for (const k in B) o[k] = { t: B[k].t, l: B[k].l }; return send(res, 200, { ok: true, b: o }); }

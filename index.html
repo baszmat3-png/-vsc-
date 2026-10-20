@@ -92,17 +92,18 @@ async function dec(key,v){return JSON.parse(dec8.decode(await crypto.subtle.decr
 //CRYPTO-END
 const DEV=(()=>{try{let d=localStorage.getItem('pb_dev');if(!d){d=rnd(16);localStorage.setItem('pb_dev',d)}return d}catch(e){return rnd(16)}})();
 async function api(path,body){try{const r=await fetch('/api/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...body,dev:DEV})});let j=null;try{j=await r.json()}catch(e){return{status:404}}return{status:r.status,json:j}}catch(e){return{status:0}}}
-async function bindNow(id,tok){if(!V.bind)return'noapi';const r=await api('bind',{id,tok});if(r.status==200)return'ok';if(r.status==409)return'bound';if([404,405,501].includes(r.status))return'noapi';return'err'}
+async function bindNow(id,tok){if(!V.bind)return'noapi';const r=await api('bind',{id,tok});if(r.status==200){SVER=(r.json&&r.json.ver)||0;return'ok'}if(r.status==409)return'bound';if([404,405,501].includes(r.status))return'noapi';return'err'}
 async function hydrate(st){if(st.role=='user'){st.contacts=[];for(const cc of st.cats||[]){const bl=V.blobs&&V.blobs[cc.id];if(!bl)continue;try{(await dec(cc.k,bl)).forEach(x=>st.contacts.push({...x,c:cc.n}))}catch(e){}}}return st}
 const BMSG='تم فك ارتباط هذا الجهاز أو سُجّل الدخول من جهاز آخر بنفس المعلومات.';
 function kicked(){try{sessionStorage.removeItem('pb_ss');localStorage.removeItem('pb_ss');sessionStorage.setItem('pb_msg',BMSG)}catch(e){}location.reload()}
-async function hb(){if(!REMOTE||!UID)return;const r=await api('bind',{id:UID,tok:TOK});if(r.status==409)kicked()}
+async function hb(){if(!REMOTE||!UID)return;const r=await api('bind',{id:UID,tok:TOK});if(r.status==409)return kicked();if(r.status==200){SVER=(r.json&&r.json.ver)||0;if(!ADMIN&&SVER>(V.ver||0))fresh()}}
+function fresh(){if($('ov').classList.contains('on'))return;location.reload()}
 const ACC=['#14b8a6','#6366f1','#8b5cf6','#ec4899','#f59e0b','#0ea5e9'];
 const RULES=[["الرئاسات ومجلس الوزراء",["رئيس الوزراء","مجلس الوزراء","رئاسه الجمهوريه","القائد العام","الامانه العامه","ديوان رئاسه","مراسيم"]],["القضاء والمحاماة",["قاض","القضاء","محكمه","محامين","استئناف"]],["مكاتب وسكرتارية",["مكتب","سكرتير","مرافق","مدير اعمال","سايق"]],["وكلاء الوزارات",["وكيل"]],["الوزراء",["وزير","معالي"]],["المحافظون والحكومات المحلية",["محافظ","امين بغداد","مجلس بغداد"]],["مجلس النواب والنواب",["النائب","النواب","النيابي","لجنه التربيه","مقرر مجلس"]],["الإعلاميون والمحللون والفنانون",["اعلام","صحفي","محلل","ناطق","متحدث","الرادود","الفنان","المصور","خبير"]],["الأحزاب والحشد والفصائل",["حزب","التيار","دوله القانون","الدعوه","كتائب","البارتي","كتله","تقدم","الحشد","الهيئه السياسيه"]],["الصحة والمستشفيات",["صحه","طبي","مستشفي","مدينه الطب","صيدل","الطب "]],["السفارات والدبلوماسيون",["سفير","سفارات","سفاره","الامم المتحده"]],["الاستخبارات والأمن الوطني",["استخبار","مخابرات","امن وطني","سيبراني","مكافحه الارهاب","جهاز"]],["الشرطة والداخلية والدفاع المدني",["شرط","داخلي","مرور","نجده","جوازات","جنسيه","اقامه","دفاع مدني","جرائم","اجرام","مكافحه","مركز","قسم","منافذ","حمايه منشا","بطاقه","سيطر","تسفير","قاطع","شخصيات","الكمارك","حفظ القانون","تسجيل جنائي","سجن","الطاقه","اتحاديه","ق ش"]],["الجيش ووزارة الدفاع والعمليات",["دفاع","فرقه","فوج","عمليات","قوات","اركان","طيران","بحري","مدفعيه","عسكري","جيش","بريه","ق ع","المعهد العالي","كليه الاركان"]],["المدراء العامون والدوائر",["مدير عام","مدير دائره","معاون المدير","دائره","معاون مدير"]],["الهيئات والمؤسسات والبنوك",["هيئه","مؤسسه","موسسه","مصرف","وقف","التقاعد","النزاهه","شركه"]],["الشيوخ والعشائر",["شيخ","شبخ","عشائر","امير بني","امير "]]];
 const IC={ph:'<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',wa:'<path d="M21 11.5a8.4 8.4 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.4 8.4 0 0 1-3.8-.9L3 21l1.9-5.7a8.4 8.4 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.4 8.4 0 0 1 3.8-.9h.5a8.5 8.5 0 0 1 8 8z"/>',cp:'<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>',ed:'<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>',x:'<path d="M18 6 6 18M6 6l12 12"/>'};
 const ic=k=>`<svg viewBox="0 0 24 24">${IC[k]}</svg>`;
 const EM={'جهات اتصالي الاعتيادية':'📒','المؤتمرات':'🎤','الرئاسات ومجلس الوزراء':'🏛️','القضاء والمحاماة':'⚖️','مكاتب وسكرتارية':'🗂️','وكلاء الوزارات':'🧑‍💼','الوزراء':'🎖️','المحافظون والحكومات المحلية':'🏙️','مجلس النواب والنواب':'🗳️','الإعلاميون والمحللون والفنانون':'🎙️','الأحزاب والحشد والفصائل':'🚩','الصحة والمستشفيات':'🩺','السفارات والدبلوماسيون':'🌐','الاستخبارات والأمن الوطني':'🛡️','الشرطة والداخلية والدفاع المدني':'🚓','الجيش ووزارة الدفاع والعمليات':'🪖','المدراء العامون والدوائر':'🏢','الهيئات والمؤسسات والبنوك':'🏦','الشيوخ والعشائر':'🤝'};
-let S={th:'auto',ac:0,dn:'',fs:1,wm:'app',msg:'',gp:1,so:'o',cc:'964',lock:15},ST,KEY,UID,ADMIN=false,C=[],act='الكل',dirty=false,idleT,REM=false,TOK,REMOTE=false,hbT,sub='',LIMIT=150;
+let S={th:'auto',ac:0,dn:'',fs:1,wm:'app',msg:'',gp:1,so:'o',cc:'964',lock:15},ST,KEY,UID,ADMIN=false,C=[],act='الكل',dirty=false,idleT,REM=false,TOK,REMOTE=false,hbT,sub='',LIMIT=150,SVER=0,syncP=null,syncAgain=false,syncT=null;
 const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]));
 const toast=m=>{const t=$('ts');t.textContent=m;t.classList.add('on');setTimeout(()=>t.classList.remove('on'),2200)};
 const saveS=()=>{try{localStorage.setItem('pb_s',JSON.stringify(S))}catch(e){}};
@@ -122,8 +123,8 @@ function dark(){return S.th=='dark'||(S.th=='auto'&&matchMedia('(prefers-color-s
 function theme(){const r=document.documentElement;r.dataset.th=dark()?'dark':'light';r.style.setProperty('--a',ACC[S.ac]);r.style.setProperty('--fs',S.fs);document.body.className=S.dn}
 const bump=()=>{clearTimeout(idleT);if(S.lock&&ST&&!REM)idleT=setTimeout(()=>logout(),S.lock*60000)};
 async function logout(){if(REMOTE){await Promise.race([api('release',{id:UID,tok:TOK}),new Promise(r=>setTimeout(r,1500))])}try{sessionStorage.removeItem('pb_ss');localStorage.removeItem('pb_ss')}catch(e){}location.reload()}
-const bn=()=>{$('bn').hidden=!(ADMIN&&dirty)};
-async function touch(){dirty=true;ST._dirty=true;ST.contacts=C;try{localStorage.setItem('pb_d_'+UID,JSON.stringify(await enc(KEY,ST,'')))}catch(e){}bn()}
+const bn=()=>{const b=$('bn');b.hidden=!(ADMIN&&(dirty||syncP));if(b.hidden)return;b.firstElementChild.textContent=syncP?'⏳ جارٍ الحفظ على الخادم…':REMOTE?'⚠️ تعذّر الحفظ على الخادم — التعديلات محفوظة على جهازك':'⚠️ الخادم غير متصل — التعديلات محفوظة على جهازك فقط';$('bp').textContent=REMOTE?'إعادة المحاولة':'تنزيل نسخة';$('bp').hidden=!!syncP};
+async function touch(){dirty=true;ST._dirty=true;ST.contacts=C;try{localStorage.setItem('pb_d_'+UID,JSON.stringify(await enc(KEY,ST,'')))}catch(e){}bn();schedSync()}
 function wl(w){if(!w)return'';const m=(S.msg||'').trim(),p=w.replace(/\D/g,'');return S.wm=='app'?`whatsapp://send?phone=${p}${m?'&text='+encodeURIComponent(m):''}`:`https://wa.me/${p}${m?'?text='+encodeURIComponent(m):''}`}
 const TT=['الفريق','اللواء','العميد','العقيد','المقدم','الرائد','الركن','دكتور','الدكتور','الاستاذ','استاذ','الشيخ','السيد','المهندس','النائب','الحاج','د'];
 const ini=n=>{const w=n.replace(/[()]/g,' ').split(/\s+/).filter(x=>x&&!TT.includes(x));return(w[0]||n||'?')[0]};
@@ -166,7 +167,7 @@ function form(c){const e=!!c;c=c||{n:'',t:'',p:'',c:'',h:0};
  if(e)$('dl').onclick=async()=>{if($('dl').dataset.s){C.splice(C.indexOf(c),1);await touch();closeSh();buildChips();render();toast('تم الحذف')}else{$('dl').dataset.s=1;$('dl').textContent='اضغط مرة أخرى للتأكيد'}}}
 const seg=(k,o)=>`<div class="seg">${o.map(([v,l])=>`<button data-k="${k}" data-v="${v}" class="${S[k]==v?'on':''}">${l}</button>`).join('')}</div>`;
 function settings(){openSh(`<h3>الإعدادات${X}</h3>
-${ADMIN?`<button class="pr" id="ac" style="margin-top:0">👥 المستخدمون والخصوصية</button><button class="pr" id="pb">🚀 نشر نسخة محدثة${dirty?' ●':''}</button><div class="sec"></div>`:`<div class="tt">مسجّل الدخول: ${esc(ST.name||'')}</div>`}
+${ADMIN?`<button class="pr" id="ac" style="margin-top:0">👥 المستخدمون والخصوصية</button><button class="pr" id="pb" style="background:var(--bg);color:var(--t);border:1px solid var(--l)">⬇️ تنزيل نسخة احتياطية (index.html)</button><div class="sec"></div>`:`<div class="tt">مسجّل الدخول: ${esc(ST.name||'')}</div>`}
 <label>المظهر</label>${seg('th',[['auto','تلقائي'],['light','فاتح'],['dark','داكن']])}
 <label>لون التطبيق</label><div class="sw2">${ACC.map((a,i)=>`<button data-k="ac" data-v="${i}" class="${S.ac==i?'on':''}" style="background:${a}"></button>`).join('')}</div>
 <label>حجم الخط</label>${seg('fs',[[0.9,'صغير'],[1,'متوسط'],[1.12,'كبير']])}
@@ -176,11 +177,11 @@ ${ADMIN?`<button class="pr" id="ac" style="margin-top:0">👥 المستخدمو
 <label>القفل التلقائي عند الخمول</label>${REM?'<div class="tt">معطّل لأن الجلسة محفوظة على هذا الجهاز (365 يومًا). سجّل الخروج لإلغائها.</div>':seg('lock',[[0,'مطفأ'],[5,'5 د'],[15,'15 د'],[60,'ساعة']])}
 <label>طريقة فتح واتساب</label>${seg('wm',[['app','مباشر (التطبيق)'],['web','رابط wa.me']])}
 <label>رسالة واتساب الجاهزة (اختياري)</label><input class="f" id="sm" value="${esc(S.msg)}" placeholder="السلام عليكم…">
-${ADMIN?`<button class="pr" id="ex" style="background:var(--bg);color:var(--t);border:1px solid var(--l)">تصدير جهات الاتصال (JSON)</button>`:''}
+${ADMIN?`<button class="pr" id="ex" style="background:var(--bg);color:var(--t);border:1px solid var(--l)">تصدير جهات الاتصال (JSON)</button><button class="pr" id="im" style="background:var(--bg);color:var(--t);border:1px solid var(--l)">استيراد جهات اتصال (JSON)</button><input type="file" id="imf" accept=".json,application/json" hidden>`:''}
 <button class="pr dg" id="lo">تسجيل الخروج</button>`);
  $('sh').querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{const v=b.dataset.v;S[b.dataset.k]=isNaN(+v)||v===''?v:+v;saveS();theme();settings();render();bump()});
  $('sm').oninput=e=>{S.msg=e.target.value;saveS();render()};$('lo').onclick=()=>logout();
- if(ADMIN){$('ac').onclick=access;$('pb').onclick=publish;$('ex').onclick=()=>dl(JSON.stringify(C.map(({n,t,p,w,c,h})=>({n,t,p,w,c,h})),null,1),'contacts.json','application/json')}}
+ if(ADMIN){$('ac').onclick=access;$('pb').onclick=publish;$('im').onclick=()=>$('imf').click();$('imf').onchange=importJ;$('ex').onclick=()=>dl(JSON.stringify(C.map(({n,t,p,w,c,h})=>({n,t,p,w,c,h})),null,1),'contacts.json','application/json')}}
 function dl(text,name,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;document.body.append(a);a.click();a.remove()}
 const MAXU=300;
 async function access(){const us=ST.users;let bm={};const ids=await Promise.all(us.map(u=>uidOf(u.u)));
@@ -194,7 +195,7 @@ ${us.length>6?'<input class="f" id="usq" placeholder="ابحث عن مستخدم
 <div class="chks">${tops().map(k=>`<label class="chk"><input type="checkbox" data-hc="${esc(k)}" ${ST.hc.includes(k)?'checked':''}> ${EM[k]||'📁'} ${esc(k)}</label>`).join('')}</div>
 <div class="tt" style="margin-top:6px">لإخفاء رقم محدد: افتح تعديله واختر «إخفاء عن جميع المستخدمين».</div>
 <div class="sec"></div><label>حساب المدير</label><button class="b" id="am" style="width:100%;justify-content:center">تغيير اسم المستخدم / كلمة المرور / الرمز</button>
-<button class="pr" id="pb2">🚀 نشر نسخة محدثة${dirty?' ●':''}</button><button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
+<button class="pr" id="pb2" style="background:var(--bg);color:var(--t);border:1px solid var(--l)">⬇️ تنزيل نسخة احتياطية (index.html)</button><button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
  $('sh').querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>userForm(+b.dataset.u));
  $('sh').querySelectorAll('[data-ub]').forEach(b=>b.onclick=async()=>{b.disabled=true;await api('admin/unbind',{id:UID,tok:TOK,target:ids[+b.dataset.ub]});toast('تم فك ارتباط الجهاز');access()});
  if($('usq'))$('usq').oninput=e=>{const q=e.target.value.toLowerCase();$('sh').querySelectorAll('.ur[data-n]').forEach(r=>r.hidden=!!q&&!r.dataset.n.toLowerCase().includes(q))};
@@ -218,38 +219,60 @@ function userForm(i){const nw=i<0,u=nw?{name:'',u:'',hc:[]}:ST.users[i];
   const b=$('us');b.disabled=true;b.textContent='جارٍ الحفظ…';
   if(nw){const salt=rnd(16);ST.users.push({name,u:un,salt,key:await derive(un,p,c,salt),hc})}
   else{Object.assign(u,{name,hc});if(p){u.salt=rnd(16);u.key=await derive(u.u,p,c,u.salt)}}
-  await touch();toast('تم الحفظ — انشر النسخة ليصل التغيير للمستخدمين');access()};
+  await touch();toast('تم الحفظ');access()};
  if(!nw)$('ud').onclick=async()=>{if($('ud').dataset.s){ST.users.splice(i,1);await touch();access()}else{$('ud').dataset.s=1;$('ud').textContent='اضغط مرة أخرى للتأكيد'}}}
 function adminForm(){openSh(`<h3>حساب المدير${X}</h3>
 <label>اسم المستخدم</label><input class="f" id="au" dir="ltr" autocapitalize="off" value="${esc(ST.admin.u)}">
 <label>كلمة المرور الجديدة</label><input class="f" id="ap" dir="ltr" autocomplete="off" placeholder="8 أحرف على الأقل">
 <label>الرمز الجديد</label><input class="f" id="ak" dir="ltr" autocomplete="off" placeholder="4 خانات على الأقل">
-<div class="tt" style="margin-top:8px">يسري التغيير بعد «نشر نسخة محدثة»، ثم ادخل بالبيانات الجديدة. احفظها جيدًا: لا يمكن استرجاعها.</div>
+<div class="tt" style="margin-top:8px">يُحفظ التغيير على الخادم فورًا وتُطلب منك بعدها بيانات الدخول الجديدة. احفظها جيدًا: لا يمكن استرجاعها.</div>
 <button class="pr" id="as">حفظ</button><button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
  $('bk').onclick=access;
  $('as').onclick=async()=>{const un=$('au').value.trim().toLowerCase(),p=$('ap').value,k=$('ak').value;
   if(!/^[a-z0-9._-]{3,}$/.test(un))return toast('اسم المستخدم غير صالح');if(ST.users.some(x=>x.u==un))return toast('اسم المستخدم مستخدم مسبقًا');
   if(p.length<8||k.length<4)return toast('كلمة المرور 8 أحرف والرمز 4 خانات على الأقل');
   const b=$('as');b.disabled=true;b.textContent='جارٍ الحفظ…';const salt=rnd(16);
-  ST.admin={u:un,salt,key:await derive(un,p,k,salt)};await touch();toast('تم الحفظ — انشر النسخة لتفعيله');access()}}
-async function publish(){toast('جارٍ التشفير…');ST.v=(ST.v||1)+1;ST.contacts=C;
+  ST.admin={u:un,salt,key:await derive(un,p,k,salt)};await touch();if(REMOTE){toast('جارٍ الحفظ…');await syncNow();toast('تم — سجّل الدخول بالبيانات الجديدة');setTimeout(logout,1500)}else{toast('تم الحفظ — نزّل النسخة وارفعها لتفعيله');access()}}}
+async function build(){ST.v=(ST.v||1)+1;ST.contacts=C;
  const vaults={},blobs={},keys={},adm={...ST};delete adm._dirty;adm.contacts=C.map(({n,t,p,w,c,h})=>({n,t,p,w,c,h:h?1:0}));
  const open=C.filter(c=>!c.h&&!hid(c.c,ST.hc)),cs=[...new Set(open.map(c=>c.c))];
  for(let j=0;j<cs.length;j++){const k=rnd(32),id='b'+j,e=await enc(k,open.filter(x=>x.c==cs[j]).map(({n,t,p,w})=>({n,t,p,w})),'');keys[cs[j]]={id,k};blobs[id]={i:e.i,c:e.c}}
  const av=await enc(ST.admin.key,adm,ST.admin.salt);av.a=await verOf(ST.admin.key);av.ad=1;vaults[await uidOf(ST.admin.u)]=av;
  for(const u of ST.users){const view={role:'user',name:u.name,v:ST.v,ord:ST.ord,cats:cs.filter(c=>!hid(c,u.hc)).map(c=>({n:c,id:keys[c].id,k:keys[c].k}))},ev=await enc(u.key,view,u.salt);ev.a=await verOf(u.key);vaults[await uidOf(u.u)]=ev}
+ return{it:V.it,bind:V.bind,ver:ST.v,blobs,vaults}}
+const saveDraft=async()=>{try{localStorage.setItem('pb_d_'+UID,JSON.stringify(await enc(KEY,ST,'')))}catch(e){}};
+function schedSync(){if(!ADMIN||!REMOTE)return;clearTimeout(syncT);syncT=setTimeout(syncNow,1200)}
+function syncNow(){clearTimeout(syncT);if(syncP){syncAgain=true;return syncP}
+ syncP=(async()=>{let tries=0,ok=false;await 0;bn();
+  try{do{syncAgain=false;const d=await build();const r=await api('sync',{id:UID,tok:TOK,data:d});
+    if(r.status==200){ok=true;SVER=d.ver}
+    else if(r.status==409&&r.json&&r.json.err=='bound'){kicked();return}
+    else if(r.status==409&&r.json&&r.json.err=='stale'&&tries++<2){ST.v=Math.max(ST.v,r.json.ver||0);syncAgain=true;ok=false}
+    else{ok=false;syncAgain=false;break}
+   }while(syncAgain);
+   if(ok){dirty=false;delete ST._dirty;await saveDraft();toast('✓ تم الحفظ على الخادم')}
+   else{await saveDraft();toast('تعذّر الحفظ على الخادم — التعديلات محفوظة على جهازك')}}
+  finally{syncP=null;bn()}})();return syncP}
+async function publish(){toast('جارٍ التشفير…');const d=await build();
  const re=new RegExp('(<scr'+'ipt id="vaults"[^>]*>)[\\s\\S]*?(</scr'+'ipt>)');
- const html=SRC.replace(re,(m,a,b)=>a+JSON.stringify({it:V.it,bind:V.bind,blobs,vaults})+b);
- dl(html,'index.html','text/html');dirty=false;await touch();dirty=false;delete ST._dirty;bn();
- try{localStorage.setItem('pb_d_'+UID,JSON.stringify(await enc(KEY,ST,'')))}catch(e){}
- openSh(`<h3>تم إنشاء النسخة${X}</h3><p>نزّل الملف <b>index.html</b> الآن، وارفعه على Render ليحلّ محل النسخة الحالية. بعد الرفع يرى كل مستخدم ما يخصه فقط، ويحتاج اسم المستخدم وكلمة المرور والرمز.</p><button class="pr" onclick="closeSh()">تم</button>`)}
+ const html=SRC.replace(re,(m,a,b)=>a+JSON.stringify(d)+b);
+ dl(html,'index.html','text/html');if(!REMOTE){dirty=false;delete ST._dirty}await saveDraft();bn();
+ openSh(`<h3>نسخة احتياطية${X}</h3><p>تم تنزيل ملف <b>index.html</b>. ${REMOTE?'التعديلات تُحفظ تلقائيًا على الخادم، وهذا الملف نسخة احتياطية فقط ولا حاجة لرفعه.':'الخادم غير متصل: ارفع الملف على الاستضافة ليحلّ محل النسخة الحالية.'}</p><button class="pr" onclick="closeSh()">تم</button>`)}
+async function importJ(e){const f=e.target.files[0];if(!f)return;let a;try{a=JSON.parse(await f.text())}catch(x){return toast('ملف غير صالح')}
+ if(!Array.isArray(a))return toast('ملف غير صالح');
+ const kf=p=>String(p||'').replace(/\D/g,'').slice(-9),have=new Set(C.map(c=>kf(c.p)).filter(Boolean));let ad=0,skp=0;
+ for(const x of a){const n=String(x.n||'').trim(),t=String(x.t||'').trim(),r=fmt(String(x.p||''));if(!r||(!n&&!t)){skp++;continue}
+  const q=kf(r.p);if(have.has(q)){skp++;continue}have.add(q);
+  C.unshift({i:C.length+1+Math.floor(Math.random()*1e6),n,t,p:r.p,w:r.w,c:String(x.c||'').trim()||auto(n+' '+t),h:x.h?1:0});ad++}
+ e.target.value='';if(ad){await touch();buildChips();render()}closeSh();toast('تمت إضافة '+ad+(skp?' · تخطي '+skp+' (مكرر/غير صالح)':''))}
 async function start(st,key,id){ST=st;KEY=key;UID=id;ADMIN=st.role=='admin';
  if(ADMIN){try{const d=localStorage.getItem('pb_d_'+id);if(d){const o=await dec(key,JSON.parse(d));if(o.v>=ST.v)ST=o}}catch(e){}ST.users=ST.users||[];ST.hc=ST.hc||[]}
  dirty=!!ST._dirty;C=ST.contacts;C.forEach((c,i)=>c.i=i+1);
  try{Object.assign(S,JSON.parse(localStorage.getItem('pb_s')||'{}'))}catch(e){}
  $('lg').hidden=true;$('app').hidden=false;$('add').hidden=!ADMIN;theme();buildChips();render();bump();
- $('gear').onclick=settings;$('out').onclick=()=>logout();$('add').onclick=()=>form();$('q').oninput=()=>{LIMIT=150;render()};$('bp').onclick=publish;
+ $('gear').onclick=settings;$('out').onclick=()=>logout();$('add').onclick=()=>form();$('q').oninput=()=>{LIMIT=150;render()};$('bp').onclick=()=>REMOTE?syncNow():publish();
  ['click','keydown','touchstart','scroll'].forEach(e=>addEventListener(e,bump,{passive:true}));
+ if(ADMIN&&REMOTE&&(dirty||SVER<(ST.v||0)))schedSync();
  if(REMOTE){clearInterval(hbT);hbT=setInterval(hb,60000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)hb()})}}
 const FK='pb_f';
 function lockLeft(){try{const f=JSON.parse(localStorage.getItem(FK)||'{}');if((f.n||0)>=5){const w=Math.min(900,30*2**(f.n-5))*1000-(Date.now()-f.t);return w>0?Math.ceil(w/1000):0}}catch(e){}return 0}
