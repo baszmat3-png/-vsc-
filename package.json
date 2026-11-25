@@ -1,1 +1,14 @@
-{"name":"phonebook","version":"1.0.0","private":true,"scripts":{"start":"node server.js"},"engines":{"node":">=18"}}
+{
+  "name": "phonebook",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "pg": "^8.13.0"
+  }
+}

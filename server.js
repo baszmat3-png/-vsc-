@@ -9,23 +9,43 @@ let DB, LOG = [], LOGMIN = 0;
 const hashPw = (p, k, salt) => crypto.scryptSync('\u0000' + String(k), salt, 32).toString('hex');
 function mkUser(u, name, p, k, role, hc) { const salt = crypto.randomBytes(16).toString('hex'); return { u: u.toLowerCase(), name, role, salt, h: hashPw(p, k, salt), hc: hc || [] }; }
 let saveT = null;
-function save(now) {
-  const w = () => { try { fs.mkdirSync(DATA, { recursive: true }); const tmp = DBF + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(DB)); fs.renameSync(tmp, DBF); } catch (e) { console.error('save failed', e.message); } };
-  clearTimeout(saveT); if (now) w(); else saveT = setTimeout(w, 250);
+// ---- التخزين: Postgres إن وُجد DATABASE_URL، وإلا ملف db.json
+function loadPg() { try { return require('pg'); } catch (e) { console.log('installing pg…'); require('child_process').execSync('npm install --no-save --no-audit --no-fund pg@8', { cwd: DIR, stdio: 'inherit' }); return require('pg'); } }
+const PG = process.env.DATABASE_URL ? new (loadPg().Pool)({ connectionString: process.env.DATABASE_URL, ssl: /localhost|127\.0\.0\.1/.test(process.env.DATABASE_URL) ? false : { rejectUnauthorized: false }, max: 3 }) : null;
+if (PG) PG.on('error', e => console.error('pg', e.message));
+let pgChain = Promise.resolve(), pgDirty = false;
+function pgWrite() {
+  if (pgDirty) return pgChain; pgDirty = true;
+  pgChain = pgChain.then(async () => {
+    pgDirty = false; const data = JSON.stringify(DB);
+    for (let i = 0; i < 3; i++) { try { await PG.query("INSERT INTO vsc_store (id, data, updated) VALUES ('db', $1, now()) ON CONFLICT (id) DO UPDATE SET data = EXCLUDED.data, updated = now()", [data]); return; } catch (e) { console.error('pg save failed', e.message); await new Promise(r => setTimeout(r, 1000 * (i + 1))); } }
+  });
+  return pgChain;
 }
-function init() {
-  try { DB = JSON.parse(fs.readFileSync(DBF, 'utf8')); }
-  catch (e) {
-    const s = JSON.parse(fs.readFileSync(SEED, 'utf8'));
-    DB = { v: 1, next: 1, contacts: [], users: [], hc: [], ord: s.ord, fav: {}, sessions: {} };
-    s.contacts.forEach(c => DB.contacts.push({ i: DB.next++, n: c.n, t: c.t || '', p: c.p || '', w: c.w || '', c: c.c, h: c.h ? 1 : 0 }));
-    DB.users.push(process.env.ADMIN_EMAIL && process.env.ADMIN_CODE ? mkUser(process.env.ADMIN_EMAIL.trim(), 'المدير', '', process.env.ADMIN_CODE, 'admin') : s.admin);
-    save(true);
+function save(now) {
+  const w = () => { if (PG) return pgWrite(); try { fs.mkdirSync(DATA, { recursive: true }); const tmp = DBF + '.tmp'; fs.writeFileSync(tmp, JSON.stringify(DB)); fs.renameSync(tmp, DBF); } catch (e) { console.error('save failed', e.message); } };
+  clearTimeout(saveT); if (now) return w(); saveT = setTimeout(w, PG ? 800 : 250);
+}
+function seedDB() {
+  const s = JSON.parse(fs.readFileSync(SEED, 'utf8'));
+  DB = { v: 1, next: 1, contacts: [], users: [], hc: [], ord: s.ord, fav: {}, sessions: {} };
+  s.contacts.forEach(c => DB.contacts.push({ i: DB.next++, n: c.n, t: c.t || '', p: c.p || '', w: c.w || '', c: c.c, h: c.h ? 1 : 0 }));
+  DB.users.push(process.env.ADMIN_EMAIL && process.env.ADMIN_CODE ? mkUser(process.env.ADMIN_EMAIL.trim(), 'المدير', '', process.env.ADMIN_CODE, 'admin') : s.admin);
+}
+async function init() {
+  if (PG) {
+    await PG.query('CREATE TABLE IF NOT EXISTS vsc_store (id text PRIMARY KEY, data text NOT NULL, updated timestamptz NOT NULL DEFAULT now())');
+    const r = await PG.query("SELECT data FROM vsc_store WHERE id = 'db'");
+    if (r.rows.length) DB = JSON.parse(r.rows[0].data);
+    else { try { DB = JSON.parse(fs.readFileSync(DBF, 'utf8')); } catch (e) { seedDB(); } await save(true); }
+    console.log('storage: postgres');
+  } else {
+    try { DB = JSON.parse(fs.readFileSync(DBF, 'utf8')); } catch (e) { seedDB(); save(true); }
+    console.log('storage: file');
   }
-  if (process.env.CLEAR_SESSIONS) { DB.sessions = {}; save(true); }
+  if (process.env.CLEAR_SESSIONS) { DB.sessions = {}; await save(true); }
   LOGMIN = DB.v;
 }
-init();
 const parentOf = k => k.includes(PS) ? k.split(PS)[0] : k;
 const hid = (k, l) => l.includes(k) || l.includes(parentOf(k));
 const visible = (c, u) => !c.h && !hid(c.c, DB.hc) && !hid(c.c, u.hc || []);
@@ -52,7 +72,7 @@ function bump(entry) {
   DB.v++; if (entry) { entry.v = DB.v; LOG.push(entry); if (LOG.length > 300) { LOG.shift(); LOGMIN = LOG[0].v - 1; } } else { LOG.push({ v: DB.v, t: 'r' }); }
   save(); for (const r of streams.values()) { try { r.write(`data: {"v":${DB.v}}\n\n`); } catch (e) {} }
 }
-setInterval(() => { for (const r of streams.values()) { try { r.write(': ping\n\n'); } catch (e) {} } const n = Date.now(); let ch = 0; for (const [sid, s] of Object.entries(DB.sessions)) if (s.exp < n) { kill(sid, true); ch++; } if (ch) save(); }, 25000);
+setInterval(() => { if (!DB) return; for (const r of streams.values()) { try { r.write(': ping\n\n'); } catch (e) {} } const n = Date.now(); let ch = 0; for (const [sid, s] of Object.entries(DB.sessions)) if (s.exp < n) { kill(sid, true); ch++; } if (ch) save(); }, 25000);
 const cookies = req => Object.fromEntries((req.headers.cookie || '').split(';').map(x => x.trim().split('=')).filter(x => x[0] && x[1]));
 function auth(req) {
   const sid = cookies(req).sid, s = sid && DB.sessions[sid]; if (!s) return null;
@@ -81,7 +101,7 @@ const usersList = () => DB.users.filter(x => x.role !== 'admin').map(x => { cons
 const validPw = (p, k) => typeof k === 'string' && k.length >= 6;
 const validU = u => u.length <= 100 && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(u);
 // ---- server
-http.createServer(async (req, res) => {
+const server = http.createServer(async (req, res) => {
   const P = new URL(req.url, 'http://x').pathname, M = req.method;
   const sec = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'DENY' };
   if (M === 'GET' && (P === '/' || P === '/index.html')) { try { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', ...sec }); return res.end(fs.readFileSync(HTMLF)); } catch (e) { res.writeHead(500); return res.end('index.html missing'); } }
@@ -175,4 +195,7 @@ http.createServer(async (req, res) => {
     }
     return send(req, res, 404, {});
   } catch (e) { console.error(e); try { send(req, res, 500, { err: 'server' }); } catch (_) {} }
-}).listen(process.env.PORT || 3000, () => console.log('listening'));
+});
+init().then(() => server.listen(process.env.PORT || 3000, () => console.log('listening'))).catch(e => { console.error('init failed', e); process.exit(1); });
+const flush = async () => { try { clearTimeout(saveT); if (PG) { await pgWrite(); await pgChain; } else save(true); } catch (e) {} process.exit(0); };
+process.on('SIGTERM', flush); process.on('SIGINT', flush);
