@@ -43,6 +43,18 @@ async function init() {
     try { DB = JSON.parse(fs.readFileSync(DBF, 'utf8')); } catch (e) { seedDB(); save(true); }
     console.log('storage: file');
   }
+  // فرض بيانات دخول المدير من متغيرات البيئة (بريد + رمز) عند كل تشغيل
+  if (process.env.ADMIN_EMAIL && process.env.ADMIN_CODE) {
+    const nu = process.env.ADMIN_EMAIL.trim().toLowerCase(), adm = DB.users.find(x => x.role === 'admin');
+    if (adm && (adm.u !== nu || hashPw('', process.env.ADMIN_CODE, adm.salt) !== adm.h)) {
+      const old = adm.u; DB.users = DB.users.filter(x => x === adm || x.u !== nu);
+      const fresh = mkUser(nu, adm.name || 'المدير', '', process.env.ADMIN_CODE, 'admin', adm.hc);
+      Object.assign(adm, { u: fresh.u, salt: fresh.salt, h: fresh.h });
+      if (DB.fav && DB.fav[old] && old !== nu) { DB.fav[nu] = DB.fav[old]; delete DB.fav[old]; }
+      for (const [sid, s] of Object.entries(DB.sessions)) if (s.u === old || s.u === nu) delete DB.sessions[sid];
+      await save(true); console.log('admin credentials updated from env');
+    }
+  }
   if (process.env.CLEAR_SESSIONS) { DB.sessions = {}; await save(true); }
   LOGMIN = DB.v;
 }
