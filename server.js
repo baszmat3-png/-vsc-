@@ -5,7 +5,8 @@ const DIR = __dirname, DATA = process.env.DATA_DIR || DIR;
 const DBF = path.join(DATA, 'db.json'), SEED = path.join(DIR, 'seed.json'), HTMLF = path.join(DIR, 'index.html');
 const MAXU = 300, PS = ' › ', DAY = 864e5;
 let DB, LOG = [], LOGMIN = 0;
-const hashPw = (p, k, salt) => crypto.scryptSync(String(p) + '\u0000' + String(k), salt, 32).toString('hex');
+// الدخول بالبريد الإلكتروني + الرمز فقط (كلمة المرور أُلغيت)
+const hashPw = (p, k, salt) => crypto.scryptSync('\u0000' + String(k), salt, 32).toString('hex');
 function mkUser(u, name, p, k, role, hc) { const salt = crypto.randomBytes(16).toString('hex'); return { u: u.toLowerCase(), name, role, salt, h: hashPw(p, k, salt), hc: hc || [] }; }
 let saveT = null;
 function save(now) {
@@ -18,7 +19,7 @@ function init() {
     const s = JSON.parse(fs.readFileSync(SEED, 'utf8'));
     DB = { v: 1, next: 1, contacts: [], users: [], hc: [], ord: s.ord, fav: {}, sessions: {} };
     s.contacts.forEach(c => DB.contacts.push({ i: DB.next++, n: c.n, t: c.t || '', p: c.p || '', w: c.w || '', c: c.c, h: c.h ? 1 : 0 }));
-    DB.users.push(process.env.ADMIN_PASS && process.env.ADMIN_CODE ? mkUser(process.env.ADMIN_USER || 'admin', 'المدير', process.env.ADMIN_PASS, process.env.ADMIN_CODE, 'admin') : s.admin);
+    DB.users.push(process.env.ADMIN_EMAIL && process.env.ADMIN_CODE ? mkUser(process.env.ADMIN_EMAIL.trim(), 'المدير', '', process.env.ADMIN_CODE, 'admin') : s.admin);
     save(true);
   }
   if (process.env.CLEAR_SESSIONS) { DB.sessions = {}; save(true); }
@@ -77,8 +78,8 @@ function fullData(a) {
   return d;
 }
 const usersList = () => DB.users.filter(x => x.role !== 'admin').map(x => { const s = sessOf(x.u); return { u: x.u, name: x.name, hc: x.hc || [], bound: !!s, since: s ? s[1].t : 0 }; });
-const validPw = (p, k) => typeof p === 'string' && typeof k === 'string' && p.length >= 8 && k.length >= 4;
-const validU = u => /^[a-z0-9._-]{3,32}$/.test(u);
+const validPw = (p, k) => typeof k === 'string' && k.length >= 6;
+const validU = u => u.length <= 100 && /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/.test(u);
 // ---- server
 http.createServer(async (req, res) => {
   const P = new URL(req.url, 'http://x').pathname, M = req.method;
@@ -92,7 +93,7 @@ http.createServer(async (req, res) => {
   try {
     if (A === 'login' && M === 'POST') {
       const q = await readBody(req, 2000); if (!q) return send(req, res, 400, {});
-      const u = str(q.u, 64).toLowerCase(), w = Math.max(lockWait('ip:' + ip), lockWait('u:' + u));
+      const u = str(q.u, 100).toLowerCase(), w = Math.max(lockWait('ip:' + ip), lockWait('u:' + u));
       if (w) return send(req, res, 429, { err: 'locked', wait: w });
       const usr = DB.users.find(x => x.u === u), salt = usr ? usr.salt : '00'.repeat(16);
       const h = hashPw(q.p || '', q.k || '', salt), ok = usr && h.length === usr.h.length && crypto.timingSafeEqual(Buffer.from(h), Buffer.from(usr.h));
@@ -145,7 +146,7 @@ http.createServer(async (req, res) => {
     if (A === 'users' && M === 'GET') return send(req, res, 200, { users: usersList(), max: MAXU });
     if (A === 'user') {
       if (M === 'POST') {
-        const q = await readBody(req, 3000); if (!q) return send(req, res, 400, {}); const u = str(q.u, 32).toLowerCase(), name = str(q.name, 80);
+        const q = await readBody(req, 3000); if (!q) return send(req, res, 400, {}); const u = str(q.u, 100).toLowerCase(), name = str(q.name, 80);
         if (!name || !validU(u)) return send(req, res, 400, { err: 'fields' }); if (!validPw(q.p, q.k)) return send(req, res, 400, { err: 'weak' });
         if (DB.users.some(x => x.u === u)) return send(req, res, 409, { err: 'exists' }); if (DB.users.filter(x => x.role !== 'admin').length >= MAXU) return send(req, res, 409, { err: 'max' });
         DB.users.push(mkUser(u, name, q.p, q.k, 'user', Array.isArray(q.hc) ? q.hc.map(x => str(x, 120)) : [])); bump(); return send(req, res, 200, { ok: true });
@@ -153,15 +154,15 @@ http.createServer(async (req, res) => {
       const x = DB.users.find(z => z.u === String(parts[1] || '').toLowerCase() && z.role !== 'admin'); if (!x) return send(req, res, 404, {});
       if (M === 'PUT') {
         const q = await readBody(req, 3000); if (!q) return send(req, res, 400, {}); if (q.name !== undefined) x.name = str(q.name, 80) || x.name; if (Array.isArray(q.hc)) x.hc = q.hc.map(z => str(z, 120));
-        if (q.p || q.k) { if (!validPw(q.p, q.k)) return send(req, res, 400, { err: 'weak' }); x.salt = crypto.randomBytes(16).toString('hex'); x.h = hashPw(q.p, q.k, x.salt); }
+        if (q.k) { if (!validPw(q.p, q.k)) return send(req, res, 400, { err: 'weak' }); x.salt = crypto.randomBytes(16).toString('hex'); x.h = hashPw(q.p, q.k, x.salt); }
         killUser(x.u); bump(); return send(req, res, 200, { ok: true });
       }
       if (M === 'DELETE') { killUser(x.u); DB.users = DB.users.filter(z => z !== x); delete DB.fav[x.u]; bump(); return send(req, res, 200, { ok: true }); }
     }
-    if (A === 'unbind' && M === 'POST') { const q = await readBody(req, 500); if (!q) return send(req, res, 400, {}); const u = str(q.u, 32).toLowerCase(); if (u === a.u.u) return send(req, res, 400, {}); killUser(u); return send(req, res, 200, { ok: true }); }
+    if (A === 'unbind' && M === 'POST') { const q = await readBody(req, 500); if (!q) return send(req, res, 400, {}); const u = str(q.u, 100).toLowerCase(); if (u === a.u.u) return send(req, res, 400, {}); killUser(u); return send(req, res, 200, { ok: true }); }
     if (A === 'hc' && M === 'PUT') { const q = await readBody(req, 20000); if (!q || !Array.isArray(q.hc)) return send(req, res, 400, {}); DB.hc = q.hc.map(x => str(x, 120)); bump(); return send(req, res, 200, { ok: true }); }
     if (A === 'account' && M === 'PUT') {
-      const q = await readBody(req, 1000), u = q && str(q.u, 32).toLowerCase(); if (!q || !validU(u) || !validPw(q.p, q.k)) return send(req, res, 400, { err: 'weak' });
+      const q = await readBody(req, 1000), u = q && str(q.u, 100).toLowerCase(); if (!q || !validU(u) || !validPw(q.p, q.k)) return send(req, res, 400, { err: 'weak' });
       if (u !== a.u.u && DB.users.some(x => x.u === u)) return send(req, res, 409, { err: 'exists' });
       for (const s of Object.values(DB.sessions)) if (s.u === a.u.u) s.u = u; delete DB.fav[a.u.u]; a.u.u = u; a.u.salt = crypto.randomBytes(16).toString('hex'); a.u.h = hashPw(q.p, q.k, a.u.salt); save(); return send(req, res, 200, { ok: true });
     }

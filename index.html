@@ -61,9 +61,8 @@ label.chk input{width:18px;height:18px;accent-color:var(--a)}
 .er{color:#ef4444;font-size:13px;min-height:20px;margin-top:10px}
 </style></head><body>
 <div id="lg" hidden><div class="lc"><div class="lo">🔐</div><h1>دليل الأرقام</h1><p>سجّل الدخول للمتابعة</p>
-<label>اسم المستخدم</label><input class="f" id="lu" dir="ltr" autocomplete="off" autocapitalize="off" spellcheck="false">
-<label>كلمة المرور</label><input class="f" id="lp" type="password" dir="ltr" autocomplete="off">
-<label>الرمز</label><input class="f" id="lk" type="password" dir="ltr" autocomplete="off">
+<label>البريد الإلكتروني</label><input class="f" id="lu" type="email" inputmode="email" dir="ltr" autocomplete="email" autocapitalize="off" spellcheck="false" placeholder="name@example.com">
+<label>الرمز</label><input class="f" id="lk" type="password" inputmode="numeric" dir="ltr" autocomplete="off">
 <label class="chk" style="justify-content:center;margin-top:12px"><input type="checkbox" id="lr" checked> تذكّرني على هذا الجهاز (365 يومًا)</label><div class="er" id="le"></div><button class="pr" id="go">دخول</button></div></div>
 <div id="app" hidden>
 <div class="hero"><div class="top"><div><h1>دليل الأرقام</h1><div class="sub" id="st"></div></div><div class="hb"><button class="ib" id="gear" aria-label="الإعدادات"><svg viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></button><button class="ib" id="out" aria-label="خروج"><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg></button></div></div></div>
@@ -124,7 +123,7 @@ function render(){const t=norm($('q').value.trim()),tn=t.replace(/\s/g,'');
 const openSh=h=>{$('sh').innerHTML=h;$('ov').classList.add('on')},closeSh=()=>$('ov').classList.remove('on');
 $('ov').onclick=e=>{if(e.target==$('ov'))closeSh()};
 const X=`<button class="b s" onclick="closeSh()">${ic('x')}</button>`;
-const ERR={name:'اكتب الاسم',phone:'رقم الهاتف غير صحيح',cat:'اختر التصنيف',weak:'كلمة المرور 8 أحرف والرمز 4 خانات على الأقل',exists:'اسم المستخدم مستخدم مسبقًا',max:'بلغت الحد الأقصى للمستخدمين',fields:'تحقق من الاسم واسم المستخدم (إنجليزي/أرقام، 3 أحرف+)'};
+const ERR={name:'اكتب الاسم',phone:'رقم الهاتف غير صحيح',cat:'اختر التصنيف',weak:'الرمز 6 خانات على الأقل',exists:'البريد الإلكتروني مستخدم مسبقًا',max:'بلغت الحد الأقصى للمستخدمين',fields:'تحقق من الاسم والبريد الإلكتروني'};
 const failMsg=r=>toast(r.status==0?'تعذّر الاتصال بالخادم':(ERR[r.j.err]||'تعذّر الحفظ'));
 function form(c){const e=!!c;c=c||{n:'',t:'',p:'',c:'',h:0};
  openSh(`<h3>${e?'تعديل جهة اتصال':'إضافة شخص'}${X}</h3>
@@ -172,7 +171,7 @@ ${us.length>6?'<input class="f" id="usq" placeholder="ابحث عن مستخدم
 <button class="b" id="bkp" style="width:100%;justify-content:center;margin-top:8px">💾 نسخة احتياطية كاملة</button>
 <button class="b" id="rst" style="width:100%;justify-content:center;margin-top:8px">♻️ استعادة نسخة احتياطية</button>
 <input type="file" id="fi" accept=".json,application/json" hidden>
-<div class="sec"></div><label>حساب المدير</label><button class="b" id="am" style="width:100%;justify-content:center">تغيير اسم المستخدم / كلمة المرور / الرمز</button>
+<div class="sec"></div><label>حساب المدير</label><button class="b" id="am" style="width:100%;justify-content:center">تغيير البريد الإلكتروني / الرمز</button>
 <button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
  $('sh').querySelectorAll('[data-u]').forEach(b=>b.onclick=()=>userForm(us[+b.dataset.u]));
  $('sh').querySelectorAll('[data-ub]').forEach(b=>b.onclick=async()=>{b.disabled=true;await api('POST','unbind',{u:us[+b.dataset.ub].u});toast('تم فك ارتباط الجهاز');access()});
@@ -189,25 +188,23 @@ ${us.length>6?'<input class="f" id="usq" placeholder="ابحث عن مستخدم
 function userForm(u){const nw=!u;u=u||{name:'',u:'',hc:[]};
  openSh(`<h3>${nw?'إضافة مستخدم':'تعديل المستخدم'}${X}</h3>
 <label>الاسم الظاهر</label><input class="f" id="un" value="${esc(u.name)}">
-<label>اسم المستخدم (للدخول)</label><input class="f" id="uu" dir="ltr" autocapitalize="off" ${nw?'':'readonly'} value="${esc(u.u)}" placeholder="حروف إنجليزية وأرقام">
-<label>كلمة المرور ${nw?'':'(اتركها فارغة للإبقاء)'}</label><input class="f" id="up" dir="ltr" autocomplete="off" placeholder="8 أحرف على الأقل">
-<label>الرمز ${nw?'':'(اتركه فارغًا للإبقاء)'}</label><input class="f" id="uc" dir="ltr" autocomplete="off" placeholder="4 خانات على الأقل">
+<label>البريد الإلكتروني (للدخول)</label><input class="f" id="uu" type="email" dir="ltr" autocapitalize="off" ${nw?'':'readonly'} value="${esc(u.u)}" placeholder="name@example.com">
+<label>الرمز ${nw?'':'(اتركه فارغًا للإبقاء)'}</label><input class="f" id="uc" dir="ltr" autocomplete="off" placeholder="6 خانات على الأقل">
 <label>التصنيفات المخفية عن هذا المستخدم</label><div class="chks">${tops().map(k=>`<label class="chk"><input type="checkbox" data-k2="${esc(k)}" ${u.hc.includes(k)?'checked':''}> ${EM[k]||'📁'} ${esc(k)}</label>`).join('')}</div>
 <button class="pr" id="us">حفظ</button>${nw?'':'<button class="pr dg" id="ud">حذف المستخدم</button>'}<button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
  $('bk').onclick=access;
- $('us').onclick=async()=>{const name=$('un').value.trim(),un=$('uu').value.trim().toLowerCase(),p=$('up').value,k=$('uc').value;if(!name)return toast(ERR.name);
+ $('us').onclick=async()=>{const name=$('un').value.trim(),un=$('uu').value.trim().toLowerCase(),p='',k=$('uc').value;if(!name)return toast(ERR.name);
   const hc=[...$('sh').querySelectorAll('[data-k2]')].filter(x=>x.checked).map(x=>x.dataset.k2),b=$('us');b.disabled=true;
-  const r=nw?await api('POST','user',{u:un,name,p,k,hc}):await api('PUT','user/'+u.u,{name,hc,...((p||k)?{p,k}:{})});b.disabled=false;
+  const r=nw?await api('POST','user',{u:un,name,p,k,hc}):await api('PUT','user/'+u.u,{name,hc,...(k?{p,k}:{})});b.disabled=false;
   if(r.status!=200)return failMsg(r);toast('تم الحفظ — يظهر للمستخدم فورًا');access()};
  if(!nw)$('ud').onclick=async()=>{if($('ud').dataset.s){await api('DELETE','user/'+u.u);access()}else{$('ud').dataset.s=1;$('ud').textContent='اضغط مرة أخرى للتأكيد'}}}
 function adminForm(){openSh(`<h3>حساب المدير${X}</h3>
-<label>اسم المستخدم</label><input class="f" id="au" dir="ltr" autocapitalize="off" value="${esc(ME.u)}">
-<label>كلمة المرور الجديدة</label><input class="f" id="ap" dir="ltr" autocomplete="off" placeholder="8 أحرف على الأقل">
-<label>الرمز الجديد</label><input class="f" id="ak" dir="ltr" autocomplete="off" placeholder="4 خانات على الأقل">
+<label>البريد الإلكتروني</label><input class="f" id="au" type="email" dir="ltr" autocapitalize="off" value="${esc(ME.u)}">
+<label>الرمز الجديد</label><input class="f" id="ak" dir="ltr" autocomplete="off" placeholder="6 خانات على الأقل">
 <div class="tt" style="margin-top:8px">يسري التغيير فورًا. احفظ البيانات الجديدة جيدًا: لا يمكن استرجاعها.</div>
 <button class="pr" id="as">حفظ</button><button class="b" id="bk" style="width:100%;justify-content:center;margin-top:10px">رجوع</button>`);
  $('bk').onclick=access;
- $('as').onclick=async()=>{const r=await api('PUT','account',{u:$('au').value.trim().toLowerCase(),p:$('ap').value,k:$('ak').value});if(r.status!=200)return failMsg(r);ME.u=$('au').value.trim().toLowerCase();toast('تم تغيير بيانات الدخول');access()}}
+ $('as').onclick=async()=>{const r=await api('PUT','account',{u:$('au').value.trim().toLowerCase(),p:'',k:$('ak').value});if(r.status!=200)return failMsg(r);ME.u=$('au').value.trim().toLowerCase();toast('تم تغيير بيانات الدخول');access()}}
 // ---- data sync
 function load(d){ME={role:d.role,name:d.name,u:d.u};ADMIN=d.role=='admin';C=d.contacts;ORD=d.ord||[];FAV=new Set(d.fav||[]);HC=d.hc||[];MAXU=d.max||MAXU;REM=!!d.rem;curV=d.v}
 function applyOps(ops){for(const o of ops){const k=C.findIndex(x=>x.i==o.id);if(o.c){if(k>=0)C[k]=o.c;else C.unshift(o.c)}else if(k>=0)C.splice(k,1)}}
@@ -217,17 +214,17 @@ function start(d){load(d);try{Object.assign(S,JSON.parse(localStorage.getItem('p
  $('lg').hidden=true;$('app').hidden=false;$('add').hidden=!ADMIN;theme();buildChips();render();bump();connect();
  $('gear').onclick=settings;$('out').onclick=()=>logout();$('add').onclick=()=>form();$('q').oninput=()=>{LIMIT=150;render()};
  ['click','keydown','touchstart','scroll'].forEach(e=>addEventListener(e,bump,{passive:true}))}
-async function doLogin(){const u=$('lu').value.trim(),p=$('lp').value,k=$('lk').value,er=$('le'),b=$('go');er.textContent='';
- if(!u||!p||!k){er.textContent='أدخل اسم المستخدم وكلمة المرور والرمز';return}
+async function doLogin(){const u=$('lu').value.trim().toLowerCase(),p='',k=$('lk').value,er=$('le'),b=$('go');er.textContent='';
+ if(!u||!k){er.textContent='أدخل البريد الإلكتروني والرمز';return}
  b.disabled=true;b.textContent='جارٍ التحقق…';
  try{const r=await api('POST','login',{u,p,k,dev:DEV,remember:$('lr').checked});
-  if(r.status==200){const d=await api('GET','data');if(d.status==200){$('lp').value='';$('lk').value='';return start(d.j)}er.textContent='تعذّر تحميل البيانات'}
+  if(r.status==200){const d=await api('GET','data');if(d.status==200){$('lk').value='';return start(d.j)}er.textContent='تعذّر تحميل البيانات'}
   else if(r.status==409)er.textContent='هنالك جهاز آخر مسجّل دخول بنفس المعلومات. اطلب من المدير فك الارتباط ثم أعد المحاولة.';
   else if(r.status==429)er.textContent='محاولات كثيرة. انتظر '+(r.j.wait||60)+' ثانية.';
   else if(r.status==401)er.textContent='بيانات الدخول غير صحيحة';
   else er.textContent='تعذّر الاتصال بالخادم. حاول لاحقًا.'}
  finally{b.disabled=false;b.textContent='دخول'}}
-$('go').onclick=doLogin;['lu','lp','lk'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key=='Enter')doLogin()}));
+$('go').onclick=doLogin;['lu','lk'].forEach(i=>$(i).addEventListener('keydown',e=>{if(e.key=='Enter')doLogin()}));
 (async()=>{theme();const d=await api('GET','data');BOOT=false;if(d.status==200)return start(d.j);try{const m=sessionStorage.getItem('pb_msg');if(m){$('le').textContent=m;sessionStorage.removeItem('pb_msg')}}catch(e){}$('lg').hidden=false})();
 
 </script></body></html>
